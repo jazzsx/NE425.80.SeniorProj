@@ -1,0 +1,15 @@
+# Python virtual environment (never commit this)
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Environment variables / secrets (created in later stages)
+.env
+
+# Editor/OS junk
+.vscode/
+.idea/
+.DS_Store
