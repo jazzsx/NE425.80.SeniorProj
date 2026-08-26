@@ -1,0 +1,37 @@
+name: CI
+
+# Run this workflow whenever code is pushed to main, and whenever a
+# pull request targets main. This catches problems both when changes
+# land directly and when they're proposed via a PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    # Run on a fresh Ubuntu virtual machine provided by GitHub.
+    runs-on: ubuntu-latest
+
+    steps:
+      # Download a copy of the repository's code onto the runner.
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Install a specific, known-good version of Python.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Install this project's dependencies, exactly as listed in
+      # requirements.txt (which includes Flask and pytest).
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Run the automated test suite.
+      - name: Run tests
+        run: python -m pytest
