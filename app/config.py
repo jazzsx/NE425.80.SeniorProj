@@ -44,3 +44,23 @@ CA_CERTS_FILE = os.environ.get("LDAP_CA_CERTS_FILE", "/etc/ssl/certs/ca-certific
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
     SECRET_KEY = secrets.token_hex(32)
+
+# --- PostgreSQL / SQLAlchemy settings ---
+# PostgreSQL runs locally on the same Ubuntu server as the Flask app,
+# under the database "ir_playbook_db" and the application role
+# "ir_playbook_app". None of this is secret except the password,
+# which has no default -- it must come from the environment (e.g. a
+# systemd EnvironmentFile) and is never written into this codebase.
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_PORT = os.environ.get("DB_PORT", "5432")
+DB_NAME = os.environ.get("DB_NAME", "ir_playbook_db")
+DB_USER = os.environ.get("DB_USER", "ir_playbook_app")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
+
+# DATABASE_URL, if set, overrides the individual DB_* variables above
+# entirely -- useful for pointing at something other than a local
+# PostgreSQL database (for example, a test database).
+SQLALCHEMY_DATABASE_URI = os.environ.get(
+    "DATABASE_URL",
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
+)
