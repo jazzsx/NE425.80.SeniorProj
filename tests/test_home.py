@@ -1,19 +1,20 @@
 """
-A minimal automated test for the Flask application.
-
-It checks that the homepage ("/") loads successfully, returning an
-HTTP 200 status code. This is the smallest useful test we can write:
-it proves the app starts up and responds, without checking every
-detail of the page content.
+Tests for the homepage, which is now protected by login.
 """
 
-from app import create_app
+
+def test_homepage_redirects_to_login_when_not_logged_in(client):
+    response = client.get("/")
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
 
 
-def test_homepage_returns_200():
-    app = create_app()
-    client = app.test_client()
+def test_homepage_loads_when_logged_in(client):
+    with client.session_transaction() as session:
+        session["username"] = "testuser"
 
     response = client.get("/")
 
     assert response.status_code == 200
+    assert b"Incident Response Playbook Generator" in response.data

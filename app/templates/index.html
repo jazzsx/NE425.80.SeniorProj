@@ -10,6 +10,10 @@
         <h1>Incident Response Playbook Generator</h1>
         <p>The Flask application is running successfully.</p>
         <p class="status">Status: <span>Basic project structure — Stage 1</span></p>
+        <p class="session-info">
+            Logged in as <strong>{{ username }}</strong>
+            &mdash; <a href="{{ url_for('auth.logout') }}">Log out</a>
+        </p>
     </main>
 </body>
 </html>

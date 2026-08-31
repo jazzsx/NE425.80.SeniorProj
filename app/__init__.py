@@ -9,6 +9,8 @@ to rewrite the rest of the project.
 
 from flask import Flask
 
+from app.config import SECRET_KEY
+
 
 def create_app():
     """Build and configure the Flask application.
@@ -20,9 +22,16 @@ def create_app():
     """
     app = Flask(__name__)
 
-    # Import and register the routes (the web pages) defined in routes.py.
+    # Needed so Flask can securely sign session cookies -- this is
+    # what makes @login_required's session check trustworthy.
+    app.config["SECRET_KEY"] = SECRET_KEY
+
+    # Import and register the routes (the web pages) defined in routes.py,
+    # plus the login/logout pages defined in auth/routes.py.
     from app.routes import main
+    from app.auth.routes import auth
 
     app.register_blueprint(main)
+    app.register_blueprint(auth)
 
     return app

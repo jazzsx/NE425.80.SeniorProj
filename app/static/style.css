@@ -21,3 +21,61 @@ body {
     color: #4ade80;
     font-weight: bold;
 }
+
+.session-info {
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+.session-info a {
+    color: #60a5fa;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    margin-top: 1.5rem;
+    min-width: 260px;
+}
+
+label {
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+input[type="text"],
+input[type="password"] {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #334155;
+    background-color: #0f172a;
+    color: #e2e8f0;
+}
+
+button {
+    margin-top: 1.5rem;
+    padding: 0.6rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #4ade80;
+    color: #0f172a;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #22c55e;
+}
+
+.flash-messages {
+    list-style: none;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0 0;
+    background-color: #7f1d1d;
+    color: #fecaca;
+    border-radius: 4px;
+}
