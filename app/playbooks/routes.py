@@ -1,16 +1,19 @@
 """
-The playbook generator page: lets a logged-in user pick an incident
-type, describe their organization, and generate a draft incident
-response playbook using the Claude API.
+The playbook generator, history, and detail pages: let a logged-in
+user pick an incident type, describe their organization, generate a
+draft incident response playbook using the Claude API, and revisit
+their own previously generated playbooks.
 
-Stage 4 does not save anything to the database yet -- that's Stage 5
-(persistence/history). Each generated playbook only exists for the
-current page load; refreshing or navigating away loses it.
+Every successfully generated playbook is saved to the "playbooks"
+table under the logged-in user's AD username. Nothing is saved for a
+failed generation or a submission that fails validation.
 """
 
 from flask import Blueprint, render_template, request, session
 
 from app.auth.decorators import login_required
+from app.extensions import db
+from app.models import Playbook
 from app.playbooks.claude_client import (
     ClaudeGenerationError,
     ClaudeNotConfiguredError,
@@ -37,11 +40,9 @@ def generate():
         error = _validate(selected_incident_type, organization_profile)
 
         if not error:
+            stripped_profile = organization_profile.strip()
             try:
-                playbook_markdown = generate_playbook(
-                    selected_incident_type, organization_profile.strip()
-                )
-                playbook_html = render_playbook_html(playbook_markdown)
+                playbook_markdown = generate_playbook(selected_incident_type, stripped_profile)
             except ClaudeNotConfiguredError:
                 error = (
                     "The AI playbook generator isn't configured yet. "
@@ -50,6 +51,20 @@ def generate():
                 )
             except ClaudeGenerationError:
                 error = "Something went wrong generating the playbook. Please try again in a moment."
+            else:
+                # Only reached when generation actually succeeded -- a
+                # failed generation or a validation error never
+                # creates a database row.
+                playbook = Playbook(
+                    created_by_username=session["username"],
+                    incident_type=selected_incident_type,
+                    organization_profile=stripped_profile,
+                    content=playbook_markdown,
+                )
+                db.session.add(playbook)
+                db.session.commit()
+
+                playbook_html = render_playbook_html(playbook_markdown)
 
     return render_template(
         "playbooks/generate.html",
@@ -59,6 +74,49 @@ def generate():
         organization_profile_max_length=MAX_ORGANIZATION_PROFILE_LENGTH,
         playbook_html=playbook_html,
         error=error,
+        username=session.get("username"),
+    )
+
+
+@playbooks.route("/history")
+@login_required
+def history():
+    """List only the logged-in user's own saved playbooks, newest first."""
+    saved_playbooks = (
+        Playbook.query.filter_by(created_by_username=session["username"])
+        .order_by(Playbook.created_at.desc())
+        .all()
+    )
+
+    return render_template(
+        "playbooks/history.html",
+        playbooks=saved_playbooks,
+        incident_types=INCIDENT_TYPES,
+        username=session.get("username"),
+    )
+
+
+@playbooks.route("/history/<int:playbook_id>")
+@login_required
+def detail(playbook_id):
+    """Show one saved playbook, but only if it belongs to this user.
+
+    Filtering by created_by_username in the same query used to look
+    the row up (rather than fetching by ID and checking ownership
+    afterward) means a playbook that exists but belongs to someone
+    else produces the exact same 404 as an ID that doesn't exist at
+    all -- nothing about the response reveals whether another user
+    owns that ID.
+    """
+    playbook = Playbook.query.filter_by(
+        id=playbook_id, created_by_username=session["username"]
+    ).first_or_404()
+
+    return render_template(
+        "playbooks/detail.html",
+        playbook=playbook,
+        incident_type_label=INCIDENT_TYPES.get(playbook.incident_type, playbook.incident_type),
+        playbook_html=render_playbook_html(playbook.content),
         username=session.get("username"),
     )
 

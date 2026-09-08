@@ -1,13 +1,13 @@
 # Incident Response Playbook Generator
 
-The app now has four pieces: a basic Flask site (Stage 1), Active
+The app now has five pieces: a basic Flask site (Stage 1), Active
 Directory login protecting it (Stage 2), a PostgreSQL database
-(Stage 3), and AI-generated playbooks using the Claude API (Stage 4,
-this update). A logged-in user can now pick an incident type,
-describe their organization, and get a NIST-aligned draft playbook
-back. There is still **no** database persistence for generated
-playbooks — a generated playbook only exists for that page load, and
-saving/history is Stage 5.
+(Stage 3), AI-generated playbooks using the Claude API (Stage 4), and
+saved playbook history (Stage 5, this update). A logged-in user can
+pick an incident type, describe their organization, generate a
+NIST-aligned draft playbook, and it's now automatically saved to
+PostgreSQL under their username — visible on a "My Playbooks" page
+that only ever shows that user's own playbooks.
 
 ## What's in this project so far
 
@@ -35,7 +35,9 @@ saving/history is Stage 5.
 │   │   ├── index.html                # The homepage
 │   │   ├── login.html                 # The login form
 │   │   └── playbooks/
-│   │       └── generate.html            # The playbook generator form + result
+│   │       ├── generate.html            # The playbook generator form + result
+│   │       ├── history.html              # "My Playbooks" -- this user's saved playbooks
+│   │       └── detail.html                # A single saved playbook
 │   └── static/
 │       └── style.css                  # Styling for all pages
 ├── run.py                     # The file you run to start the server
@@ -47,7 +49,8 @@ saving/history is Stage 5.
 │   ├── test_home.py               # Tests for the homepage/login redirect
 │   ├── test_auth.py                # Tests for login/logout
 │   ├── test_models.py               # Tests for the Playbook database model
-│   └── test_playbooks.py             # Tests for the playbook generator page
+│   ├── test_playbooks.py             # Tests for the playbook generator page (incl. saving)
+│   └── test_playbook_history.py       # Tests for "My Playbooks" and the detail page
 ├── .github/workflows/ci.yml    # Runs the tests automatically on GitHub
 ├── .gitignore                   # Tells Git which files/folders to never track
 └── README.md                     # This file
@@ -196,11 +199,15 @@ http://127.0.0.1:5000
 
 You'll be redirected to `/login` first. Signing in with a valid AD
 username and password takes you to the homepage, which now shows who
-you're logged in as, a "Log out" link, and a link to **Generate an
-Incident Response Playbook**. That page lets you pick an incident type
-(Ransomware, Business Email Compromise, or Data Exfiltration),
-describe the organization, and click **Generate Playbook** to get a
-draft playbook back from Claude.
+you're logged in as, a "Log out" link, and links to **Generate an
+Incident Response Playbook** and **My Playbooks**. The generator page
+lets you pick an incident type (Ransomware, Business Email
+Compromise, or Data Exfiltration), describe the organization, and
+click **Generate Playbook** to get a draft playbook back from Claude
+-- which is now automatically saved. **My Playbooks** lists every
+playbook *you've* generated (never anyone else's), newest first;
+clicking one opens a detail page showing the incident type,
+organization profile, creation time, and the full generated playbook.
 
 To stop the server, go back to the terminal and press `Ctrl+C`.
 
@@ -268,13 +275,27 @@ request targeting `main`.
   attacker figure out whether a given username exists.
 - **`app/auth/decorators.py`** — Defines `@login_required`, a
   reusable guard you can put on any route that should require login.
-- **`app/playbooks/routes.py`** — The `/playbooks/generate` page.
-  Protected by `@login_required`. On GET, shows the form. On POST,
-  re-validates the submitted incident type and organization profile
-  on the server (never trusting that the browser enforced them),
-  calls the Claude client, converts the result to safe HTML, and
-  re-renders the same page with either the generated playbook or a
-  friendly error message.
+- **`app/playbooks/routes.py`** — Three pages, all protected by
+  `@login_required`:
+  - `/playbooks/generate` — on GET, shows the form; on POST,
+    re-validates the submitted incident type and organization profile
+    on the server (never trusting that the browser enforced them),
+    calls the Claude client, and **only on success** saves a new
+    `Playbook` row (username, incident type, organization profile,
+    generated content) before converting the result to safe HTML and
+    re-rendering the page. A validation failure or a Claude API
+    failure never touches the database.
+  - `/playbooks/history` ("My Playbooks") — queries `Playbook` rows
+    filtered to `created_by_username == <the logged-in user>`, newest
+    first. There is no way to pass in a different username; it always
+    comes from the session, never from the request.
+  - `/playbooks/history/<id>` (the detail page) — looks up a playbook
+    by *both* its ID and `created_by_username` in the same query. If
+    the ID doesn't exist, or exists but belongs to someone else, the
+    query returns nothing either way and the route responds with the
+    same generic 404 -- nothing in the response reveals which case it
+    was, so it can't be used to confirm whether another user has a
+    playbook with that ID.
 - **`app/playbooks/claude_client.py`** — The only file that talks to
   the Anthropic API. Builds the request with the Anthropic Python SDK
   (`anthropic.Anthropic(...).messages.create(...)`), using the API key
@@ -301,12 +322,22 @@ request targeting `main`.
   live HTML.
 - **`app/templates/login.html`** — The login form.
 - **`app/templates/index.html`** — The homepage, showing the
-  logged-in username, a logout link, and a link to the playbook
-  generator.
+  logged-in username, a logout link, and links to the playbook
+  generator and "My Playbooks."
 - **`app/templates/playbooks/generate.html`** — The playbook generator
   form (incident type dropdown, organization profile textarea,
   "Generate Playbook" button) and, once generated, the playbook itself
-  rendered below it.
+  rendered below it, with a note confirming it was saved.
+- **`app/templates/playbooks/history.html`** — "My Playbooks": a table
+  of the logged-in user's saved playbooks (incident type, created
+  date/time), each linking to its detail page, or a friendly empty
+  state if they haven't generated any yet.
+- **`app/templates/playbooks/detail.html`** — One saved playbook:
+  incident type, organization profile (shown as plain escaped text,
+  not interpreted as Markdown -- it's the user's own raw input, not a
+  Claude response), creation date/time, and the generated playbook
+  content, re-rendered through the same safe Markdown pipeline used on
+  the generator page.
 - **`app/static/style.css`** — Styling shared by all pages.
 - **`.env.example`** — Documents every environment variable the app
   reads, with safe placeholder/default values. It is committed to Git
@@ -329,13 +360,24 @@ request targeting `main`.
   advances when a saved playbook is later edited.
 - **`tests/test_playbooks.py`** — Confirms the generator page requires
   login; rejects an invalid incident type, an empty organization
-  profile, and an overly long one; shows a friendly message when no
-  API key is configured (using the real "not configured" code path,
-  since no real key is present in this test environment either);
-  renders a mocked Claude response as safe HTML; shows a generic error
-  message (never the underlying exception detail) when the Claude
-  call fails; and confirms unsafe HTML (like a `<script>` tag) never
+  profile, and an overly long one (and that none of those save a
+  database row); shows a friendly message when no API key is
+  configured (using the real "not configured" code path, since no
+  real key is present in this test environment either, and that this
+  doesn't save a row); renders a mocked Claude response as safe HTML
+  *and* confirms it was saved with the correct username/incident
+  type/profile/content; shows a generic error message (never the
+  underlying exception detail, and no row saved) when the Claude call
+  fails; and confirms unsafe HTML (like a `<script>` tag) never
   survives the rendering step.
+- **`tests/test_playbook_history.py`** — Confirms both "My Playbooks"
+  and the detail page require login; that the history page shows one
+  user's playbooks but never another user's (two users' playbooks are
+  seeded directly in the test database, then checked from one user's
+  logged-in session); that a user can open their own playbook's detail
+  page and see the right content; that requesting another user's
+  playbook ID returns a 404 without leaking that user's data anywhere
+  in the response; and that a nonexistent ID also returns a 404.
 - **`requirements.txt`** — The exact list of Python packages this
   project depends on: Flask (web framework), pytest (testing), ldap3
   (talks to Active Directory), Flask-SQLAlchemy (database models),
@@ -383,10 +425,18 @@ allowlist sanitizer before being displayed, so nothing in a model
 response (accidental or adversarial) can inject a script or other live
 HTML into the page.
 
+## A note on per-user access control
+
+Every playbook row records who generated it (`created_by_username`).
+"My Playbooks" and the detail page both filter by that column against
+`session["username"]` -- the ID in the URL is never enough on its own
+to see a playbook; it also has to belong to whoever is currently
+logged in. Requesting someone else's playbook ID and requesting an ID
+that doesn't exist produce the identical 404 response, so the app
+never confirms or denies whether a given ID belongs to another user.
+
 ## What's coming in later stages
 
-1. Saving generated playbooks to the `playbooks` table and adding a
-   history page (Stage 5)
-2. Deployment onto the Ubuntu Server VM
+1. Deployment onto the Ubuntu Server VM
 
 We will tackle these one at a time, in separate steps.

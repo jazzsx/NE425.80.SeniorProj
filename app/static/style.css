@@ -154,3 +154,46 @@ button:hover {
     padding: 0.4rem 0.6rem;
     text-align: left;
 }
+
+.playbook-list {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    margin-top: 1.5rem;
+}
+
+.playbook-list th,
+.playbook-list td {
+    border-bottom: 1px solid #334155;
+    padding: 0.6rem 0.75rem;
+}
+
+.playbook-list th {
+    color: #94a3b8;
+    font-weight: normal;
+    font-size: 0.9rem;
+}
+
+.playbook-list a {
+    color: #60a5fa;
+}
+
+.playbook-meta {
+    text-align: left;
+    margin-top: 1.5rem;
+}
+
+.playbook-meta dt {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+.playbook-meta dd {
+    margin: 0.25rem 0 0;
+}
+
+.organization-profile {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ incident_type_label }} Playbook - Incident Response Playbook Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="card wide">
+        <h1>{{ incident_type_label }} Playbook</h1>
+        <p class="session-info">
+            Logged in as <strong>{{ username }}</strong>
+            &mdash; <a href="{{ url_for('main.home') }}">Home</a>
+            &mdash; <a href="{{ url_for('playbooks.history') }}">My Playbooks</a>
+            &mdash; <a href="{{ url_for('auth.logout') }}">Log out</a>
+        </p>
+
+        <dl class="playbook-meta">
+            <dt>Incident type</dt>
+            <dd>{{ incident_type_label }}</dd>
+
+            <dt>Created</dt>
+            <dd>{{ playbook.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+
+            <dt>Organization profile</dt>
+            <dd class="organization-profile">{{ playbook.organization_profile }}</dd>
+        </dl>
+
+        <section class="playbook-output">
+            <h2>Generated Playbook</h2>
+            <div class="playbook-content">
+                {{ playbook_html | safe }}
+            </div>
+        </section>
+    </main>
+</body>
+</html>

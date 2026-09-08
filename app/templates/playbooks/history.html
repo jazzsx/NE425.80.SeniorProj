@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Playbooks - Incident Response Playbook Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="card wide">
+        <h1>My Playbooks</h1>
+        <p class="session-info">
+            Logged in as <strong>{{ username }}</strong>
+            &mdash; <a href="{{ url_for('main.home') }}">Home</a>
+            &mdash; <a href="{{ url_for('playbooks.generate') }}">Generate a Playbook</a>
+            &mdash; <a href="{{ url_for('auth.logout') }}">Log out</a>
+        </p>
+
+        {% if playbooks %}
+            <table class="playbook-list">
+                <thead>
+                    <tr>
+                        <th>Incident type</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for playbook in playbooks %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('playbooks.detail', playbook_id=playbook.id) }}">
+                                    {{ incident_types.get(playbook.incident_type, playbook.incident_type) }}
+                                </a>
+                            </td>
+                            <td>{{ playbook.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>
+                You haven't generated any playbooks yet.
+                <a href="{{ url_for('playbooks.generate') }}">Generate your first one.</a>
+            </p>
+        {% endif %}
+    </main>
+</body>
+</html>

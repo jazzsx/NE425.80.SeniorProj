@@ -11,6 +11,7 @@
         <p class="session-info">
             Logged in as <strong>{{ username }}</strong>
             &mdash; <a href="{{ url_for('main.home') }}">Home</a>
+            &mdash; <a href="{{ url_for('playbooks.history') }}">My Playbooks</a>
             &mdash; <a href="{{ url_for('auth.logout') }}">Log out</a>
         </p>
 
@@ -55,6 +56,9 @@
         {% if playbook_html %}
             <section class="playbook-output">
                 <h2>Generated Playbook</h2>
+                <p class="hint">
+                    Saved to <a href="{{ url_for('playbooks.history') }}">My Playbooks</a>.
+                </p>
                 <div class="playbook-content">
                     {{ playbook_html | safe }}
                 </div>
