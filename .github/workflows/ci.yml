@@ -14,16 +14,27 @@ jobs:
     # Run on a fresh Ubuntu virtual machine provided by GitHub.
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.12 is a widely-used, well-supported baseline; 3.14 is the
+        # actual version installed on the Ubuntu production server
+        # (see the README's Stage 6 deployment section), so testing
+        # against it here catches dependency-compatibility problems
+        # (e.g. a package needing a newer wheel) before they show up
+        # only on the real deployment target.
+        python-version: ["3.12", "3.14"]
+
     steps:
       # Download a copy of the repository's code onto the runner.
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Install a specific, known-good version of Python.
+      # Install the Python version this job is testing against.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       # Install this project's dependencies, exactly as listed in
       # requirements.txt (which includes Flask and pytest).

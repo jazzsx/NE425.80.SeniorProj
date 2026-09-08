@@ -77,3 +77,13 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 # A sensible default model, overridable per-deployment without a code
 # change (e.g. to test a different model, or move to a newer one).
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
+
+# --- Production hardening ---
+# Whether the browser should be told to only ever send the session
+# cookie over HTTPS. This must stay "false" for local development (a
+# plain "python run.py" over http://127.0.0.1) and should only be
+# switched to "true" once Nginx is confirmed serving the app over real
+# HTTPS in production -- a Secure cookie is silently refused by
+# browsers on a plain HTTP connection, which would otherwise break
+# login. See the README's Stage 6 deployment section.
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "false").strip().lower() == "true"

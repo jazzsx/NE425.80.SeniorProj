@@ -9,5 +9,12 @@ plain SQLAlchemy() instance here lets both files import it safely.
 """
 
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import CSRFProtect
 
 db = SQLAlchemy()
+
+# Protects every POST/PUT/PATCH/DELETE request (the login form and the
+# playbook generator form, currently) against Cross-Site Request
+# Forgery -- a request is rejected unless it carries a valid token
+# tied to the user's own session. GET requests are never affected.
+csrf = CSRFProtect()

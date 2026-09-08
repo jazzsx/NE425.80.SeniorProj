@@ -21,6 +21,7 @@
         {% endwith %}
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ request.values.get('next', '') }}">
 
             <label for="username">Username</label>

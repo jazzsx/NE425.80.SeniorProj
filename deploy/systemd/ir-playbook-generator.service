@@ -1,0 +1,66 @@
+# systemd unit for the Incident Response Playbook Generator (Gunicorn).
+#
+# This file is version-controlled here for reference; it is NOT read
+# from this location at runtime. Install it manually on the Ubuntu
+# server -- see the README's Stage 6 deployment section for the exact
+# commands. In short:
+#
+#   sudo cp deploy/systemd/ir-playbook-generator.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ir-playbook-generator
+#
+# The paths below (/opt/ir-playbook-generator, the "ir-playbook-app"
+# service account, etc.) are the convention used throughout this
+# project's deployment docs. If you deploy to a different path or
+# account, update every path in this file to match -- systemd does
+# not resolve them relative to anything.
+
+[Unit]
+Description=Incident Response Playbook Generator (Gunicorn)
+After=network-online.target postgresql.service
+Wants=network-online.target
+# Not a hard requirement: the app is meant to start even if
+# PostgreSQL happens to come up slightly later or is briefly
+# restarted -- it will simply fail individual requests until the
+# database is reachable, rather than refusing to start at all.
+
+[Service]
+Type=notify
+# Gunicorn supports systemd's sd_notify readiness protocol directly;
+# no extra package is required for Type=notify to work correctly.
+
+# Run as a dedicated, unprivileged service account -- never as root
+# and never as your own personal login account. Create it once with:
+#   sudo useradd --system --home /opt/ir-playbook-generator --shell /usr/sbin/nologin ir-playbook-app
+User=ir-playbook-app
+Group=ir-playbook-app
+
+WorkingDirectory=/opt/ir-playbook-generator
+
+# All secrets and per-deployment configuration come from this file,
+# never from this unit file itself. See
+# deploy/ir-playbook-generator.env.example for its contents and the
+# README for how to create the real file securely and set its
+# permissions.
+EnvironmentFile=/etc/ir-playbook-generator/ir-playbook-generator.env
+
+ExecStart=/opt/ir-playbook-generator/venv/bin/gunicorn -c gunicorn.conf.py run:app
+
+Restart=on-failure
+RestartSec=5
+
+# --- Light sandboxing ---
+# Deliberately conservative: the app needs outbound network access
+# (LDAPS to the domain controller, PostgreSQL, the Anthropic API), so
+# nothing here blocks networking. This just limits what a compromised
+# worker process could do to the rest of the filesystem.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Gunicorn/Flask don't need to write anywhere on disk at runtime
+# (playbooks are stored in PostgreSQL, not on the filesystem), so no
+# ReadWritePaths= entry is needed even under ProtectSystem=strict.
+
+[Install]
+WantedBy=multi-user.target

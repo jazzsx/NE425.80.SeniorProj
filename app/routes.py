@@ -1,9 +1,9 @@
 """
 This file defines the web pages ("routes") that the Flask app can show.
 
-Right now there is only one page: the homepage ("/"). Login and
-logout live separately in app/auth/routes.py. In later stages we'll
-add more routes here, such as a page for generating playbooks.
+The homepage ("/") is here. Login/logout live separately in
+app/auth/routes.py, and the playbook generator/history/detail pages
+live in app/playbooks/routes.py.
 """
 
 from flask import Blueprint, render_template, session
@@ -26,3 +26,18 @@ def home():
     this function and displays the templates/index.html page.
     """
     return render_template("index.html", username=session.get("username"))
+
+
+@main.route("/healthz")
+def healthz():
+    """A minimal liveness check for systemd/monitoring, not for humans.
+
+    Deliberately does not require login and does not touch the
+    database, Active Directory, or the Claude API -- it only confirms
+    that the Flask/Gunicorn process itself is up and able to handle a
+    request. It must never return anything sensitive (no config
+    values, no version/path details, no stack traces), so there's
+    nothing here for an unauthenticated caller to learn beyond "the
+    process is alive."
+    """
+    return {"status": "ok"}, 200

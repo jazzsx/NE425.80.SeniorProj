@@ -9,8 +9,15 @@ __pycache__/
 # Pytest's own cache folder
 .pytest_cache/
 
-# Environment variables / secrets (created in later stages)
+# Environment variables / secrets
 .env
+
+# A real production environment file must never be created inside the
+# repo (it belongs at /etc/ir-playbook-generator/ on the server) --
+# this is just a safety net in case one ever ends up here by mistake.
+# The committed *.env.example template is intentionally exempted.
+deploy/*.env
+!deploy/*.env.example
 
 # Editor/OS junk
 .vscode/

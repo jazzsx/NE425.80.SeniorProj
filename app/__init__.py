@@ -1,15 +1,13 @@
 """
 This file turns the "app" folder into a Python package and builds
 the Flask application itself.
-
-Later project stages will plug new pieces in here (the Claude API
-client, etc.) without us having to rewrite the rest of the project.
 """
 
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-from app.config import SECRET_KEY, SQLALCHEMY_DATABASE_URI
-from app.extensions import db
+from app.config import SECRET_KEY, SESSION_COOKIE_SECURE, SQLALCHEMY_DATABASE_URI
+from app.extensions import csrf, db
 
 
 def create_app(config_overrides=None):
@@ -38,13 +36,42 @@ def create_app(config_overrides=None):
     app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    # Session cookie hardening. HttpOnly (default in Flask, set
+    # explicitly here so it's never accidentally turned off) stops
+    # JavaScript from reading the cookie at all. SameSite=Lax stops it
+    # being sent on cross-site POST/PUT/etc requests, which -- together
+    # with the CSRF protection below -- is the app's defense against
+    # cross-site request forgery. Secure is controlled by
+    # SESSION_COOKIE_SECURE (see app/config.py): off for local/dev
+    # HTTP, meant to be turned on once Nginx is serving real HTTPS.
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = SESSION_COOKIE_SECURE
+
     if config_overrides:
         app.config.update(config_overrides)
+
+    # In production, Nginx sits in front of Gunicorn and terminates
+    # TLS, forwarding plain HTTP to Gunicorn on localhost. Without
+    # this, Flask/Werkzeug would think every request is plain HTTP
+    # (since that's what Gunicorn actually sees), which would break
+    # CSRF's same-origin referrer check and any https:// URLs the app
+    # generates. ProxyFix makes Flask trust the X-Forwarded-* headers
+    # Nginx sets, so request.is_secure reflects what the browser
+    # actually used. It's harmless with no proxy in front (e.g. local
+    # "python run.py"): those headers simply won't be present.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # Connect the SQLAlchemy extension to this app. This does not
     # create any tables yet -- see app/commands.py's "init-db" command
     # for that.
     db.init_app(app)
+
+    # Protects every state-changing (POST/PUT/PATCH/DELETE) request
+    # against cross-site request forgery. The login form and the
+    # playbook generator form both need a matching {{ csrf_token() }}
+    # hidden field for their POSTs to be accepted.
+    csrf.init_app(app)
 
     # Import the models so SQLAlchemy knows about the "playbooks"
     # table before anything tries to create tables or query them.

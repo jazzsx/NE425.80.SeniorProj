@@ -22,6 +22,8 @@
         {% endif %}
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
             <label for="incident_type">Incident type</label>
             <select id="incident_type" name="incident_type" required>
                 <option value="" {% if not selected_incident_type %}selected{% endif %} disabled>

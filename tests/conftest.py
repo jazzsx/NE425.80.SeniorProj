@@ -26,6 +26,13 @@ def app():
         config_overrides={
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            # The rest of this suite posts test form data directly,
+            # without fetching a CSRF token first -- that's fine, since
+            # these tests are about the app's own view logic, not
+            # re-testing Flask-WTF's CSRF protection itself. That gets
+            # its own dedicated tests, with CSRF deliberately left on,
+            # in tests/test_csrf.py.
+            "WTF_CSRF_ENABLED": False,
         }
     )
 
