@@ -15,4 +15,4 @@ app = create_app()
 if __name__ == "__main__":
     # debug=True gives helpful error pages while you are developing.
     # This must be turned off before the app ever goes on a real server.
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

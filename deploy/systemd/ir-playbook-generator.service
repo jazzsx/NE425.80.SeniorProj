@@ -44,7 +44,7 @@ WorkingDirectory=/opt/ir-playbook-generator
 # permissions.
 EnvironmentFile=/etc/ir-playbook-generator/ir-playbook-generator.env
 
-ExecStart=/opt/ir-playbook-generator/venv/bin/gunicorn -c gunicorn.conf.py run:app
+ExecStart=/opt/ir-playbook-generator/venv/bin/gunicorn --no-control-socket -c gunicorn.conf.py run:app
 
 Restart=on-failure
 RestartSec=5

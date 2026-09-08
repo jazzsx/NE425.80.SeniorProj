@@ -22,7 +22,7 @@ import multiprocessing
 # thing that should ever talk to Gunicorn directly -- it's never
 # exposed to the LAN on its own.
 bind = "127.0.0.1:8000"
-
+timeout = 120
 # A common, conservative starting point: enough worker processes to
 # use the available CPU cores without over-committing memory on a lab
 # VM. Adjust based on the VM's actual CPU count and observed load.
