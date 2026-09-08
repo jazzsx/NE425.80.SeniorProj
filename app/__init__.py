@@ -51,12 +51,15 @@ def create_app(config_overrides=None):
     from app import models  # noqa: F401
 
     # Import and register the routes (the web pages) defined in routes.py,
-    # plus the login/logout pages defined in auth/routes.py.
+    # the login/logout pages defined in auth/routes.py, and the AI
+    # playbook generator page defined in playbooks/routes.py.
     from app.routes import main
     from app.auth.routes import auth
+    from app.playbooks.routes import playbooks
 
     app.register_blueprint(main)
     app.register_blueprint(auth)
+    app.register_blueprint(playbooks)
 
     from app.commands import register_commands
 

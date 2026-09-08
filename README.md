@@ -1,11 +1,13 @@
 # Incident Response Playbook Generator
 
-The app now has three pieces: a basic Flask site (Stage 1), Active
-Directory login protecting it (Stage 2), and a PostgreSQL database for
-storing generated playbooks (Stage 3, this update). There is still
-**no** Claude API integration — that comes in a later stage. Nothing
-generates playbooks yet; this stage only adds the place they'll be
-stored.
+The app now has four pieces: a basic Flask site (Stage 1), Active
+Directory login protecting it (Stage 2), a PostgreSQL database
+(Stage 3), and AI-generated playbooks using the Claude API (Stage 4,
+this update). A logged-in user can now pick an incident type,
+describe their organization, and get a NIST-aligned draft playbook
+back. There is still **no** database persistence for generated
+playbooks — a generated playbook only exists for that page load, and
+saving/history is Stage 5.
 
 ## What's in this project so far
 
@@ -23,11 +25,19 @@ stored.
 │   │   ├── routes.py                  # /login and /logout pages
 │   │   ├── ldap_client.py              # Checks a username/password against Active Directory
 │   │   └── decorators.py                # @login_required, used to protect pages
+│   ├── playbooks/
+│   │   ├── __init__.py               # Marks playbooks/ as a Python package
+│   │   ├── routes.py                  # /playbooks/generate page
+│   │   ├── claude_client.py            # Calls the Anthropic Claude API
+│   │   ├── prompts.py                   # Builds the system/user prompts, lists incident types
+│   │   └── rendering.py                  # Safely converts Claude's Markdown reply to HTML
 │   ├── templates/
 │   │   ├── index.html                # The homepage
-│   │   └── login.html                 # The login form
+│   │   ├── login.html                 # The login form
+│   │   └── playbooks/
+│   │       └── generate.html            # The playbook generator form + result
 │   └── static/
-│       └── style.css                  # Styling for both pages
+│       └── style.css                  # Styling for all pages
 ├── run.py                     # The file you run to start the server
 ├── requirements.txt           # List of Python packages this project needs
 ├── .env.example                # Documents the environment variables the app reads (no real secrets)
@@ -36,7 +46,8 @@ stored.
 │   ├── conftest.py               # Shared test setup (a test client, a test database)
 │   ├── test_home.py               # Tests for the homepage/login redirect
 │   ├── test_auth.py                # Tests for login/logout
-│   └── test_models.py               # Tests for the Playbook database model
+│   ├── test_models.py               # Tests for the Playbook database model
+│   └── test_playbooks.py             # Tests for the playbook generator page
 ├── .github/workflows/ci.yml    # Runs the tests automatically on GitHub
 ├── .gitignore                   # Tells Git which files/folders to never track
 └── README.md                     # This file
@@ -87,8 +98,9 @@ pip install -r requirements.txt
 ```
 
 This reads `requirements.txt` and installs Flask, pytest, ldap3,
-Flask-SQLAlchemy, and psycopg2-binary (the PostgreSQL driver) into
-your virtual environment.
+Flask-SQLAlchemy, psycopg2-binary (the PostgreSQL driver), anthropic
+(the Claude API SDK), and Markdown + bleach (used to safely display
+generated playbooks) into your virtual environment.
 
 ### 4. Configure Active Directory settings (optional on this VM)
 
@@ -138,7 +150,31 @@ flask --app run.py init-db
 This is safe to run again later — it only creates tables that don't
 already exist yet, and never deletes or overwrites data.
 
-### 6. Run the application
+### 6. Configure the Claude API (for the playbook generator)
+
+The playbook generator page needs an Anthropic API key. Get one from
+[console.anthropic.com](https://console.anthropic.com/) and set it as
+an environment variable — never write it into a file that gets
+committed to Git:
+
+```bash
+export ANTHROPIC_API_KEY='your-real-api-key-here'
+```
+
+That's the only required setting. `ANTHROPIC_MODEL` is optional and
+defaults to `claude-sonnet-5`; set it only if you want to use a
+different model:
+
+```bash
+export ANTHROPIC_MODEL='claude-sonnet-5'
+```
+
+If `ANTHROPIC_API_KEY` isn't set, the rest of the app (login, the
+homepage, the database) still works completely normally — only the
+"Generate Playbook" button shows a friendly "not configured yet"
+message instead of an error page.
+
+### 7. Run the application
 
 ```bash
 python run.py
@@ -150,7 +186,7 @@ You should see output that looks like:
  * Running on http://127.0.0.1:5000
 ```
 
-### 7. View it in your browser
+### 8. View it in your browser
 
 Open a web browser and go to:
 
@@ -160,24 +196,30 @@ http://127.0.0.1:5000
 
 You'll be redirected to `/login` first. Signing in with a valid AD
 username and password takes you to the homepage, which now shows who
-you're logged in as and a "Log out" link.
+you're logged in as, a "Log out" link, and a link to **Generate an
+Incident Response Playbook**. That page lets you pick an incident type
+(Ransomware, Business Email Compromise, or Data Exfiltration),
+describe the organization, and click **Generate Playbook** to get a
+draft playbook back from Claude.
 
 To stop the server, go back to the terminal and press `Ctrl+C`.
 
-### 8. Run the automated tests
+### 9. Run the automated tests
 
 ```bash
 python -m pytest
 ```
 
-These tests never contact a real Active Directory server or a real
-PostgreSQL database — login checks use a mocked (fake) version of the
-AD check, and database tests run against a throwaway in-memory SQLite
-database created fresh for each test. That means the full suite can
-run anywhere, including in GitHub Actions, without needing a domain
-controller or a PostgreSQL server available. This is also what the CI
-workflow (`.github/workflows/ci.yml`) runs automatically on every push
-and pull request targeting `main`.
+These tests never contact a real Active Directory server, a real
+PostgreSQL database, or the real Claude API — login checks use a
+mocked (fake) version of the AD check, database tests run against a
+throwaway in-memory SQLite database created fresh for each test, and
+playbook-generation tests mock the Claude API call entirely. That
+means the full suite can run anywhere, including in GitHub Actions,
+without needing a domain controller, a PostgreSQL server, or a real
+`ANTHROPIC_API_KEY` available. This is also what the CI workflow
+(`.github/workflows/ci.yml`) runs automatically on every push and pull
+request targeting `main`.
 
 ## What each file does (plain English)
 
@@ -191,9 +233,10 @@ and pull request targeting `main`.
   database connection is set up.
 - **`app/config.py`** — Reads all the non-code settings (AD domain,
   domain controller hostname, LDAPS port, CA bundle path, session
-  secret key, database host/port/name/user/password) from environment
-  variables, with defaults matching this project's real environment.
-  Nothing here is a hardcoded secret — see the note below.
+  secret key, database host/port/name/user/password, Anthropic API
+  key/model) from environment variables, with defaults matching this
+  project's real environment. Nothing here is a hardcoded secret — see
+  the note below.
 - **`app/extensions.py`** — Creates the shared `db` (SQLAlchemy)
   object in its own file. This avoids a circular import: models.py
   needs to import `db` to define tables, and `__init__.py` needs to
@@ -225,10 +268,46 @@ and pull request targeting `main`.
   attacker figure out whether a given username exists.
 - **`app/auth/decorators.py`** — Defines `@login_required`, a
   reusable guard you can put on any route that should require login.
+- **`app/playbooks/routes.py`** — The `/playbooks/generate` page.
+  Protected by `@login_required`. On GET, shows the form. On POST,
+  re-validates the submitted incident type and organization profile
+  on the server (never trusting that the browser enforced them),
+  calls the Claude client, converts the result to safe HTML, and
+  re-renders the same page with either the generated playbook or a
+  friendly error message.
+- **`app/playbooks/claude_client.py`** — The only file that talks to
+  the Anthropic API. Builds the request with the Anthropic Python SDK
+  (`anthropic.Anthropic(...).messages.create(...)`), using the API key
+  and model from `app/config.py`. Raises `ClaudeNotConfiguredError` if
+  no API key is set, or `ClaudeGenerationError` for any API/network
+  failure — both are caught by `routes.py` and turned into a friendly
+  message, never a stack trace. The model's response is only ever
+  treated as text to display; nothing it returns is executed.
+- **`app/playbooks/prompts.py`** — Defines the three allowed incident
+  types (Ransomware, Business Email Compromise, Data Exfiltration),
+  the maximum organization-profile length, and the system/user prompt
+  text sent to Claude. The system prompt tells Claude to align the
+  playbook with NIST SP 800-61 Rev. 3 and the NIST Cybersecurity
+  Framework 2.0 (explicitly *not* the outdated Rev. 2), and explicitly
+  instructs it to treat the organization profile as untrusted
+  descriptive text only — never as instructions that could override
+  the system prompt.
+- **`app/playbooks/rendering.py`** — Converts Claude's Markdown
+  response into HTML for display. The conversion always goes through
+  an allowlist sanitizer (`bleach`) afterward, which strips anything
+  not on a small list of safe formatting tags (headings, lists,
+  paragraphs, tables, etc.) — so even if a model response contained
+  raw `<script>` tags or similar, none of it can reach the page as
+  live HTML.
 - **`app/templates/login.html`** — The login form.
 - **`app/templates/index.html`** — The homepage, showing the
-  logged-in username and a logout link.
-- **`app/static/style.css`** — Styling shared by both pages.
+  logged-in username, a logout link, and a link to the playbook
+  generator.
+- **`app/templates/playbooks/generate.html`** — The playbook generator
+  form (incident type dropdown, organization profile textarea,
+  "Generate Playbook" button) and, once generated, the playbook itself
+  rendered below it.
+- **`app/static/style.css`** — Styling shared by all pages.
 - **`.env.example`** — Documents every environment variable the app
   reads, with safe placeholder/default values. It is committed to Git
   on purpose (it holds no real secrets); a real `.env` file, if you
@@ -248,10 +327,20 @@ and pull request targeting `main`.
 - **`tests/test_models.py`** — Confirms a `Playbook` row can be saved
   and read back with all its fields intact, and that `updated_at`
   advances when a saved playbook is later edited.
+- **`tests/test_playbooks.py`** — Confirms the generator page requires
+  login; rejects an invalid incident type, an empty organization
+  profile, and an overly long one; shows a friendly message when no
+  API key is configured (using the real "not configured" code path,
+  since no real key is present in this test environment either);
+  renders a mocked Claude response as safe HTML; shows a generic error
+  message (never the underlying exception detail) when the Claude
+  call fails; and confirms unsafe HTML (like a `<script>` tag) never
+  survives the rendering step.
 - **`requirements.txt`** — The exact list of Python packages this
   project depends on: Flask (web framework), pytest (testing), ldap3
   (talks to Active Directory), Flask-SQLAlchemy (database models),
-  and psycopg2-binary (the PostgreSQL driver).
+  psycopg2-binary (the PostgreSQL driver), anthropic (the Claude API
+  SDK), and Markdown + bleach (safely render generated playbooks).
 - **`.gitignore`** — Tells Git which files/folders to never commit,
   such as the `venv/` folder, `.pytest_cache/`, and any real `.env`
   file containing secrets.
@@ -269,16 +358,35 @@ hardcoded default. If `SECRET_KEY` isn't set, a temporary one is
 generated automatically each time you run the app (fine for local
 testing, but it means everyone gets logged out if you restart the
 app; set a real one for anything beyond local testing). `DB_PASSWORD`
-has no fallback at all — without it, the app will simply fail to
-connect to PostgreSQL, which is the correct, safe failure mode rather
-than silently trying a blank or guessable password. Your actual AD
-password is never stored anywhere either — it's used once, in memory,
-to attempt the LDAPS login, and then discarded.
+defaults to an empty string rather than a guessable value — without a
+real one set, PostgreSQL will simply reject the connection, which is
+the correct, safe failure mode. Your actual AD password is never
+stored anywhere either — it's used once, in memory, to attempt the
+LDAPS login, and then discarded.
+
+`ANTHROPIC_API_KEY` follows the same pattern: it's read only from the
+environment, has no default at all, and is never written to a log —
+if it's missing, the app checks for that explicitly and shows a
+friendly message rather than letting a missing-key error escape as a
+raw exception.
+
+## A note on the organization profile and AI safety
+
+The "organization profile" textarea is free-text input from whoever
+is logged in, and the system prompt sent to Claude explicitly treats
+it as **untrusted, descriptive context only** — it tells the model to
+ignore anything in that text that looks like an instruction, command,
+or attempt to change its behavior, and to only ever produce playbook
+text, never take or claim to take any action. On the way back, the
+generated Markdown is converted to HTML and passed through an
+allowlist sanitizer before being displayed, so nothing in a model
+response (accidental or adversarial) can inject a script or other live
+HTML into the page.
 
 ## What's coming in later stages
 
-1. Claude API integration (to actually generate playbooks and save
-   them into the `playbooks` table added in this stage)
+1. Saving generated playbooks to the `playbooks` table and adding a
+   history page (Stage 5)
 2. Deployment onto the Ubuntu Server VM
 
 We will tackle these one at a time, in separate steps.

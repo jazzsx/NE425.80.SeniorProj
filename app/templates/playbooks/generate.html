@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Generate Playbook - Incident Response Playbook Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="card wide">
+        <h1>Generate an Incident Response Playbook</h1>
+        <p class="session-info">
+            Logged in as <strong>{{ username }}</strong>
+            &mdash; <a href="{{ url_for('main.home') }}">Home</a>
+            &mdash; <a href="{{ url_for('auth.logout') }}">Log out</a>
+        </p>
+
+        {% if error %}
+            <ul class="flash-messages">
+                <li>{{ error }}</li>
+            </ul>
+        {% endif %}
+
+        <form method="post">
+            <label for="incident_type">Incident type</label>
+            <select id="incident_type" name="incident_type" required>
+                <option value="" {% if not selected_incident_type %}selected{% endif %} disabled>
+                    Choose an incident type&hellip;
+                </option>
+                {% for value, label in incident_types.items() %}
+                    <option value="{{ value }}" {% if value == selected_incident_type %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <label for="organization_profile">
+                Organization profile
+                <span class="hint">
+                    Describe the organization: size, industry, key systems,
+                    environment (cloud/on-prem/hybrid), and anything else
+                    relevant to how it would respond to this incident.
+                </span>
+            </label>
+            <textarea
+                id="organization_profile"
+                name="organization_profile"
+                rows="8"
+                maxlength="{{ organization_profile_max_length }}"
+                required
+            >{{ organization_profile }}</textarea>
+
+            <button type="submit">Generate Playbook</button>
+        </form>
+
+        {% if playbook_html %}
+            <section class="playbook-output">
+                <h2>Generated Playbook</h2>
+                <div class="playbook-content">
+                    {{ playbook_html | safe }}
+                </div>
+            </section>
+        {% endif %}
+    </main>
+</body>
+</html>

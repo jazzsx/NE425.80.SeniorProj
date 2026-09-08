@@ -64,3 +64,16 @@ SQLALCHEMY_DATABASE_URI = os.environ.get(
     "DATABASE_URL",
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
 )
+
+# --- Anthropic Claude API settings ---
+# ANTHROPIC_API_KEY has no default at all (not even an empty string):
+# the playbook generator checks for this explicitly and shows a
+# friendly "not configured" message rather than trying to call the
+# API with a missing/blank key. It must come from the environment
+# (e.g. a systemd EnvironmentFile) and must never be logged or
+# committed to source control.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+
+# A sensible default model, overridable per-deployment without a code
+# change (e.g. to test a different model, or move to a newer one).
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")

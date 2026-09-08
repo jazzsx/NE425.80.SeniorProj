@@ -5,8 +5,10 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
     margin: 0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    box-sizing: border-box;
 }
 
 .card {
@@ -15,6 +17,15 @@ body {
     border-radius: 8px;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.card.wide {
+    max-width: 800px;
+    width: 100%;
+    /* Generated playbooks can be long, so this card should grow from
+       the top of the page instead of trying to stay vertically
+       centered like the small login/home cards. */
+    align-self: flex-start;
 }
 
 .status span {
@@ -48,12 +59,28 @@ label {
 }
 
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+select,
+textarea {
     padding: 0.5rem;
     border-radius: 4px;
     border: 1px solid #334155;
     background-color: #0f172a;
     color: #e2e8f0;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+textarea {
+    resize: vertical;
+}
+
+.hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: normal;
+    color: #64748b;
 }
 
 button {
@@ -78,4 +105,52 @@ button:hover {
     background-color: #7f1d1d;
     color: #fecaca;
     border-radius: 4px;
+}
+
+.playbook-output {
+    margin-top: 2rem;
+    text-align: left;
+    border-top: 1px solid #334155;
+    padding-top: 1.5rem;
+}
+
+.playbook-content {
+    background-color: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 4px;
+    padding: 1rem 1.5rem;
+    line-height: 1.6;
+    overflow-wrap: break-word;
+}
+
+.playbook-content h1,
+.playbook-content h2,
+.playbook-content h3,
+.playbook-content h4 {
+    color: #4ade80;
+}
+
+.playbook-content code {
+    background-color: #1e293b;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+}
+
+.playbook-content pre {
+    background-color: #1e293b;
+    padding: 0.75rem;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.playbook-content table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.playbook-content th,
+.playbook-content td {
+    border: 1px solid #334155;
+    padding: 0.4rem 0.6rem;
+    text-align: left;
 }
